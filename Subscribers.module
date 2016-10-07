@@ -65,7 +65,7 @@ class Subscribers extends WireData implements Module {
 	public function ___install() {
 
 		// get user template
-		$userTemplate = $templates->get('user');
+		$userTemplate = $this->templates->get('user');
 
 		// install new permission if not found
 		if($this->permissions($this->roleName)){
@@ -144,11 +144,11 @@ class Subscribers extends WireData implements Module {
 		// delete permission page created at install
 		$roleName = $this->roleName;
 		$p = $this->pages->get("template=permission,name=$roleName");
-		$p->delete();
+		if(count($p)) $this->pages->delete($p);
 
 		// delete role page created on adminSave
 		$r = $this->pages->get("template=role,name=$roleName");
-		$r->delete();
+		if(count($r)) $this->pages->delete($r);
 	}
 
 	/*

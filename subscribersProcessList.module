@@ -20,13 +20,17 @@ class subscribersProcessList extends Process {
         );
     }
 
+    public function ___install() {
+
+    }
+
     public function execute() {
         // get users
         $users = $this->users;
         $role = "subscriber";
 
         $subscribeModule = $this->modules->getModule('Subscribers');
-        
+
         if($subscribeModule){
             $role = $subscribeModule->getRole();
         }
