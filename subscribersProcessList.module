@@ -16,7 +16,7 @@ class subscribersProcessList extends Process {
             'summary' => 'Pages a list of users with a specific role',
             'version' => 001,
             'requires' => "Subscribers",
-            'icon' => 'email'
+            'icon' => 'users'
         );
     }
 

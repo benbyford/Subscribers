@@ -31,7 +31,9 @@ class Subscribers extends WireData implements Module {
 	}
 
 	private $roleName = 'subscriber';
+	// permissions title
 	private $title = 'Allow subscribers to view restricted content';
+
 
 	public function init() {
 		$this->addHookAfter('modules::saveModuleConfigData', $this, 'adminSaved');
@@ -54,7 +56,6 @@ class Subscribers extends WireData implements Module {
 			// add new role name
 			$role = new Role();
 			$role->name = $roleName;
-			$role->addPermission($roleName);
 
 			$role->save();
 
@@ -64,21 +65,38 @@ class Subscribers extends WireData implements Module {
 
 	public function ___install() {
 
+		$this->roleName = $roleName;
+
+		// if subscribers role found then dont do anything
+		if(count($this->pages->find("template=role, name=$roleName"))){
+
+			$this->message($roleName . " role already found");
+
+		// if role not found then add new role
+		}else{
+			// add new role name
+			$role = new Role();
+			$role->name = $roleName;
+			$role->save();
+
+			$this->message($roleName . " role created");
+		}
+
 		// get user template
 		$userTemplate = $this->templates->get('user');
 
 		// install new permission if not found
-		if($this->permissions($this->roleName)){
+		if(count($this->permissions->get($roleName))){
+			$this->message($roleName . " permission found.");
+		}else{
 
 			// create new permission
-			$p = $this->permissions->add($this->roleName);
+			$p = $this->permissions->add($roleName);
 			$p->title = $this->title;
 
 			$p->save();
 
-			$this->message($this->roleName . " permission created.");
-		}else{
-			$this->message($this->roleName . " permission found.");
+			$this->message($roleName . " permission created.");
 		}
 
 		// install fields for users needed for new susbcribers
@@ -88,7 +106,7 @@ class Subscribers extends WireData implements Module {
 
 			// crate company field
 			$f = new Field();
-			$f->type = $this->modules->get("InputfieldText");;
+			$f->type = $this->modules->get("FieldtypeText");
 			$f->name = "company";
 			$f->label = "Company name";
 			$f->save();
@@ -107,7 +125,7 @@ class Subscribers extends WireData implements Module {
 
 			// crate company field
 			$f = new Field();
-			$f->type = $this->modules->get("InputfieldCheckbox");;
+			$f->type = $this->modules->get("FieldtypeCheckbox");
 			$f->name = "email_subscribe";
 			$f->label = "Opt in to email newsletter";
 			$f->save();
@@ -126,7 +144,7 @@ class Subscribers extends WireData implements Module {
 
 			// crate company field
 			$f = new Field();
-			$f->type = $this->modules->get("InputfieldDatetime");;
+			$f->type = $this->modules->get("FieldtypeDatetime");
 			$f->name = "subscribe_date";
 			$f->label = "Date subscriber was added";
 			$f->save();
@@ -136,6 +154,25 @@ class Subscribers extends WireData implements Module {
 			$userTemplate->fields->save();
 
 			$this->message("Created subscribe_date field and added to new user role.");
+		}
+
+		// install fullname field for user's name
+		if($this->fields->get("fullname")){
+			$this->message("Subscribe fullname field already installed. Please add fullname field to new user if not done already");
+		}else{
+
+			// crate company field
+			$f = new Field();
+			$f->type = $this->modules->get("FieldtypeText");
+			$f->name = "fullname";
+			$f->label = "Full name";
+			$f->save();
+
+			// add company field to user template
+			$userTemplate->fields->add($f);
+			$userTemplate->fields->save();
+
+			$this->message("Created fullname field and added to new user role.");
 		}
 	}
 
@@ -300,26 +337,36 @@ class Subscribers extends WireData implements Module {
 	public function register($input){
 		$out = '';
 
-		if($input->post->name && $input->post->password){
+		if($input->post->name && $input->post->password && $input->post->email){
 
-			$u = new User();
-			$u->of(false);
+			// check to see is user exists
+			$userSaved = true;
+			try {
+				$u = new User();
+				$u->of(false);
 
-			// add username check
-			$u->name = $input->post->name;
-			$u->fullname = $input->post->name;
-			$u->email = $input->post->email;
-			$u->company = $input->post->company;
-			$u->subscribe_date = time();
-			$u->email_subscribe = $input->post->email_subscribe;
-			$u->pass = $input->post->password;
-			$u->addRole($this->roleName);
-			$u->save();
+				// add username check
+				$u->name = $input->post->email;
+				$u->fullname = $input->post->name;
+				$u->email = $input->post->email;
+				$u->company = $input->post->company;
+				$u->subscribe_date = time();
+				$u->email_subscribe = $input->post->email_subscribe;
+				$u->pass = $input->post->password;
+				$u->addRole($this->roleName);
+				$u->save();
 
-			if($u){
+			} catch (Exception $e) {
+				// register error
+				$out = "User already exists or there was a problem, please use another email or login.";
+				$userSaved = false;
+			}
+
+			if($userSaved){
 				// login in as new user
 				$this->session->login($u->name, $input->post->password);
 
+				// email text
 				$email_body = "Hello " . $u->fullname . ", thank you for registering with Betaville \n\n";
 				$email_body .= "Your username is: " . $u->name;
 
@@ -327,6 +374,7 @@ class Subscribers extends WireData implements Module {
 				mail($u->email, "Thank you for registering with Betaville", $email_body, "From: noreply@{$this->config->httpHost}");
 
 				$this->session->redirect('/login');
+
 			}else{
 				$out = "There was a problem registering your new user. Please try again.";
 			}
