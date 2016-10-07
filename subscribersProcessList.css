@@ -1,0 +1,10 @@
+table{
+    width: 100%;
+}
+table thead{
+    background: #e4ebee;
+}
+table td{
+    padding: 0.5em;
+    border: 1px solid #e4ebee;
+}

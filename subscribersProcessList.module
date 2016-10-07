@@ -1,0 +1,66 @@
+<?php
+/**
+* subscribersProcessList
+*
+* @author Ben Byford
+* http://www.benbyford.com
+*
+* @see http://www.processwire.com
+*/
+
+class subscribersProcessList extends Process {
+
+    public static function getModuleInfo() {
+        return array(
+            'title' => 'Subscribers Process List',
+            'summary' => 'Pages a list of users with a specific role',
+            'version' => 001,
+            'requires' => "Subscribers",
+            'icon' => 'email'
+        );
+    }
+
+    public function execute() {
+        // get users
+        $users = $this->users;
+        $role = "subscriber";
+
+        $subscribeModule = $this->modules->getModule('Subscribers');
+        
+        if($subscribeModule){
+            $role = $subscribeModule->getRole();
+        }
+
+        $table = "<table><thead><tr><td>Username</td><td>Name</td><td>Company</td><td>User Role</td><td>Email</td><td>Date subscribed</td><td>Newsletter opt-in</td></tr></thead>";
+        $count = 0;
+        $userRole = "";
+        foreach ($users as $user) {
+            if($user->hasRole($role)){
+                $userRole = $role;
+            }
+            if($user->hasRole("exclusive")){
+                $userRole = "exclusive";
+            }
+            if($userRole){
+                $table .= '<tr>';
+                $table .= '<td><a href="'. $this->config->urls->admin .'access/roles/edit/?id='. $user->id .'">'. $user->name . '</a></td>';
+                $table .= '<td>'. $user->fullname . '</td>';
+                $table .= '<td>'. $user->company . '</td>';
+                $table .= '<td>'. $userRole . '</td>';
+                $table .= '<td><a href="mailto:'.$user->email.'">'. $user->email . '</a></td>';
+                $table .= '<td>'. date("d.m.Y", (int)$user->subscribe_date) . '</td>';
+                $table .= '<td>'. $user->email_subscribe . '</td>';
+                $table .= '</tr>';
+                ++$count;
+
+                $userRole = "";
+            }
+        }
+        $table .= "</table>";
+
+        $list = "<h2>Users with Role: <b>". $role ."</b> or <b>exclusive</b></h2>";
+        $list .= "<h4>Total of <b>". $count ."</b> users</h4>" . $table;
+
+        return $list;
+    }
+}

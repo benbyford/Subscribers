@@ -1,0 +1,394 @@
+<?php
+/**
+ * PW Page Save Mailer (0.0.1)
+ * Emails list of users on page publish
+ *
+ * @author Ben Byford
+ *
+ * ProcessWire 2.x
+ * Copyright (C) 2011 by Ryan Cramer
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://www.processwire.com
+ * http://www.ryancramer.com
+ *
+ */
+
+class Subscribers extends WireData implements Module {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => "Subscribers",
+			'version' => "0.0.1",
+			'summary' => "Creates a form, admin list and login for subscribers",
+			'author' => "Ben Byford",
+			'href' => "http://www.benbyford.com/",
+			'icon' => 'users',
+			'autoload' => true,
+			'singular' => true,
+			'requires' => array("PHP>=5.4.0", "ProcessWire>=2.5.0"),
+		);
+	}
+
+	private $roleName = 'subscriber';
+	private $title = 'Allow subscribers to view restricted content';
+
+	public function init() {
+		$this->addHookAfter('modules::saveModuleConfigData', $this, 'adminSaved');
+	}
+
+	public function adminSaved(HookEvent $e){
+		// get saved page args
+		$args = $e->arguments[1];
+		$roleName = $args['user-role'];
+		$this->roleName = $roleName;
+
+		// if role found then dont do anything
+		if(count($this->pages->find("template=role, name=$roleName"))){
+
+			$this->message($roleName . " role already found");
+
+		// if role not found then add new role
+		}else{
+
+			// add new role name
+			$role = new Role();
+			$role->name = $roleName;
+			$role->addPermission($roleName);
+
+			$role->save();
+
+			$this->message($roleName . " role created");
+		}
+	}
+
+	public function ___install() {
+
+		// get user template
+		$userTemplate = $templates->get('user');
+
+		// install new permission if not found
+		if($this->permissions($this->roleName)){
+
+			// create new permission
+			$p = $this->permissions->add($this->roleName);
+			$p->title = $this->title;
+
+			$p->save();
+
+			$this->message($this->roleName . " permission created.");
+		}else{
+			$this->message($this->roleName . " permission found.");
+		}
+
+		// install fields for users needed for new susbcribers
+		if($this->fields->get("company")){
+			$this->message("Company field already installed. Please add Company field to new user if not done already");
+		}else{
+
+			// crate company field
+			$f = new Field();
+			$f->type = $this->modules->get("InputfieldText");;
+			$f->name = "company";
+			$f->label = "Company name";
+			$f->save();
+
+			// add company field to user template
+			$userTemplate->fields->add($f);
+			$userTemplate->fields->save();
+
+			$this->message("Created Company field and added to new user role.");
+		}
+
+		// install subscribe checkbox field
+		if($this->fields->get("email_subscribe")){
+			$this->message("Email Subscribe field already installed. Please add email_subscribe field to new user if not done already");
+		}else{
+
+			// crate company field
+			$f = new Field();
+			$f->type = $this->modules->get("InputfieldCheckbox");;
+			$f->name = "email_subscribe";
+			$f->label = "Opt in to email newsletter";
+			$f->save();
+
+			// add company field to user template
+			$userTemplate->fields->add($f);
+			$userTemplate->fields->save();
+
+			$this->message("Created email_subscribe field and added to new user role.");
+		}
+
+		// install subscriber date field to track when subscriber was added
+		if($this->fields->get("subscribe_date")){
+			$this->message("Subscribe date field already installed. Please add subscribe_date field to new user if not done already");
+		}else{
+
+			// crate company field
+			$f = new Field();
+			$f->type = $this->modules->get("InputfieldDatetime");;
+			$f->name = "subscribe_date";
+			$f->label = "Date subscriber was added";
+			$f->save();
+
+			// add company field to user template
+			$userTemplate->fields->add($f);
+			$userTemplate->fields->save();
+
+			$this->message("Created subscribe_date field and added to new user role.");
+		}
+	}
+
+	public function ___uninstall() {
+
+		// delete permission page created at install
+		$roleName = $this->roleName;
+		$p = $this->pages->get("template=permission,name=$roleName");
+		$p->delete();
+
+		// delete role page created on adminSave
+		$r = $this->pages->get("template=role,name=$roleName");
+		$r->delete();
+	}
+
+	/*
+	* public frontend functions
+	*/
+
+	// register user form
+	public function formRegister($input) {
+
+		$f = '<div class="register-form"><form action="./" method="post">';
+		$f .= '<h2>Register</h2>';
+		$f .= '<p>Register for free to see rest of this article and all articles on Betaville</p>';
+
+		$f .= '<div><label id="name-label">Full name<span class="asterisk">*</span>:</label>';
+		$f .= '<input required type="text" name="name" aria-labelledby="name-label"></div>';
+
+		$f .= '<div><label id="email-label">Email<span class="asterisk">*</span>:</label>';
+		$f .= '<input required type="email" name="email" aria-labelledby="email-label"></div>';
+
+		$f .= '<div><label id="company-label">Company:</label>';
+		$f .= '<input type="text" name="company" aria-labelledby="company-label"></div>';
+
+		$f .= '<div><label id="password-label">Password<span class="asterisk">*</span>:</label>';
+		$f .= '<input required type="password" name="password" aria-labelledby="password-label"></div>';
+
+		$f .= '<div><label id="password-label">Password re-type<span class="asterisk">*</span>:</label>';
+		$f .= '<input required type="password" name="password" aria-labelledby="password-label"></div>';
+
+		$f .= '<div><label id="newsletter-label">Opt-in to our newsletter:</label>';
+		$f .= '<input type="checkbox" name="email_subscribe" aria-labelledby="newsletter-label"></div>';
+
+		$f .= '<input type="submit" class="btn">';
+		$f .= '</form></div>';
+
+		return $f;
+    }
+
+	// login user form
+	public function formLogin() {
+		$f = "<div class='login'>
+		        <form action='./' method='post'>
+		            <div>
+		                <label>Username<span class='asterisk'>*</span>:</label>
+		                <input required class='' type='text' id='username' name='username' placeholder='' />
+		            </div>
+		            <div>
+		                <label>Password<span class='asterisk'>*</span>:</label>
+		                <input required class='' type='password' name='pass' value='' />
+		            </div>
+		            <input type='submit' class='btn' name='submit' value='login' />
+		        </form><p><a href='". $this->page->url ."forgotten-password'>Forgotten password</a></p></div>";
+
+		return $f;
+	}
+
+	// user when user logged in
+	public function loggedIn($user, $input) {
+
+		// show logged in user name
+        $out = "<p>You are logged in as: ". $user->fullname . "</p>";
+
+		$out .= "<p>Username: " . $user->name . "</p>";
+
+		if($input->get->password && $input->get->password_change && $input->get->old_pass){
+
+			if($this->session->authenticate($user, $input->get->old_pass)) {
+
+				$user->pass = $input->get->password;
+				$user->save();
+
+				$out .= "<p><span class='message'>Your password was changed.</span></p>";
+			}else{
+				$out .= "<p><span class='error'>There was a problem saving your password.</span></p>";
+			}
+
+		}else{
+			$out .= "<form class='change_password' action='./' type='POST'>
+						<h4>Change password</h4>
+						<div>
+							<label>Current password:</label>
+							<input type='password' name='old_pass'>
+						</div>
+						<div>
+							<label>New password:</label>
+							<input type='password' name='password'>
+							<input type='text' name='password_change' value='1' required class='hidden'>
+						</div>
+						<div>
+							<input type='submit' value='submit'>
+						</div>
+					</form>";
+		}
+
+		// show delete link
+        $out .= "<p>To remove your account click: <a href='/login/?delete=1&user=". $user->name ."'>DELETE</p>";
+
+		return $out;
+	}
+
+	public function deleteUser($user){
+		$u = $this->users->get($input->get->user);
+		$out = "";
+
+        if($u->id) {
+
+            // user found and deleted
+            $this->users->delete($u);
+
+			// send to homepage
+			$homepage = $this->pages->get('id=1');
+            $this->session->redirect($homepage->url);
+
+        }else{
+			$out = "<p>No user found.</p>";
+		}
+
+		return $out;
+	}
+
+	public function login($username, $pass){
+
+		$u = $this->sanitizer->username($username);
+		$p = $pass;
+
+		try {
+			if($this->session->login($u, $p)) {
+
+                // login successful
+                if($prevURL){
+					$this->session->redirect($prevURL);
+                }else{
+                    $this->session->redirect($homepage->url);
+                }
+
+			} else {
+				// login error
+				$this->session->login_error = 'Login Failed. Please try again, or use the forgot password link below.';
+
+                return "<span class='error'>Login Failed. Please try again.</span>";
+			}
+
+		} catch (Exception $e) {
+			// save error
+			wire('log')->save('debug', $e->getMessage());
+		}
+	}
+
+	// register
+	public function register($input){
+		$out = '';
+
+		if($input->post->name && $input->post->password){
+
+			$u = new User();
+			$u->of(false);
+
+			// add username check
+			$u->name = $input->post->name;
+			$u->fullname = $input->post->name;
+			$u->email = $input->post->email;
+			$u->company = $input->post->company;
+			$u->subscribe_date = time();
+			$u->email_subscribe = $input->post->email_subscribe;
+			$u->pass = $input->post->password;
+			$u->addRole($this->roleName);
+			$u->save();
+
+			if($u){
+				// login in as new user
+				$this->session->login($u->name, $input->post->password);
+
+				$email_body = "Hello " . $u->fullname . ", thank you for registering with Betaville \n\n";
+				$email_body .= "Your username is: " . $u->name;
+
+				// send email to confirm registeration
+				mail($u->email, "Thank you for registering with Betaville", $email_body, "From: noreply@{$this->config->httpHost}");
+
+				$this->session->redirect('/login');
+			}else{
+				$out = "There was a problem registering your new user. Please try again.";
+			}
+
+		}else{
+			$out .= "<span class='error'>There was a problem registering.</span>";
+		}
+		return $out;
+	}
+
+	// forgotten password
+	public function lostPassword($input){
+
+		$showForm = true;
+	    $email = $this->sanitizer->email($input->post->email);
+
+	    if($email) {
+	      	$u = $this->users->get("email=$email");
+	      	if($u->id) {
+
+	        	// generate a random, temporary password
+		        $pass = '';
+		        $chars = 'abcdefghjkmnopqrstuvwxyz23456789!@#$&*ASDFGHJKLQWERTYUIOPZXCVBNM';
+		        $length = mt_rand(9,12); // password between 9 and 12 characters
+
+				for($n = 0; $n < $length; $n++){
+					$pass .= $chars[mt_rand(0, strlen($chars)-1)];
+				}
+
+		        $u->of(false);
+		        $u->tmp_pass = $pass; // populate a temporary pass to their profile
+		        $u->save();
+		        $u->of(true);
+
+		        $message = "Your new password is: $pass\n\n";
+				$message .= $this->config->httpHost . "/login/\n\n";
+		        $message .= "Please change after login.";
+
+				// send reset password email
+		        mail($u->email, "Password reset", $message, "From: noreply@{$this->config->httpHost}");
+
+		        $out = "<p>An email has been dispatched to you with further instructions.</p>";
+
+				$showForm = false;
+
+	      	} else {
+	        	$out = "<p>Sorry, account doesn't exist or doesn't have an email.</p>";
+	    	}
+	    }
+
+	    if($showForm){
+			$out = "<h2>Reset your password</h2>
+		      		<form action='./' method='post'>
+		      			<label>E-Mail <input type='email' name='email'></label>
+		      			<input type='submit' value='Submit'>
+		      			<p class='spam-check'>Please check your spam folder in case this email doesn't appear within 10 minutes.</p>
+		      		</form>";
+		}
+	    return $out;
+	}
+
+	public function getRole(){
+		return $this->roleName;
+	}
+}
