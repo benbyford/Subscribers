@@ -19,10 +19,10 @@ class Subscribers extends WireData implements Module {
 	public static function getModuleInfo() {
 		return array(
 			'title' => "Subscribers",
-			'version' => "0.0.1",
+			'version' => "002",
 			'summary' => "Creates a form, admin list and login for subscribers",
 			'author' => "Ben Byford",
-			'href' => "http://www.benbyford.com/",
+			'href' => "https://github.com/benbyford/subscribers",
 			'icon' => 'users',
 			'autoload' => true,
 			'singular' => true,

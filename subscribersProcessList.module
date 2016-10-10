@@ -14,9 +14,14 @@ class subscribersProcessList extends Process {
         return array(
             'title' => 'Subscribers Process List',
             'summary' => 'Pages a list of users with a specific role',
-            'version' => 001,
+            'version' => 002,
             'requires' => "Subscribers",
-            'icon' => 'users'
+            'icon' => 'users',
+            'href' => "https://github.com/benbyford/subscribers",
+            'permission' => 'subscribers-list',
+			'permissions' => array(
+				'subscribers-list' => 'View list of users with subscribers role',
+				),
         );
     }
 
