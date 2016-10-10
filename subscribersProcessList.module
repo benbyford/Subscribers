@@ -14,7 +14,7 @@ class subscribersProcessList extends Process {
         return array(
             'title' => 'Subscribers Process List',
             'summary' => 'Pages a list of users with a specific role',
-            'version' => 002,
+            'version' => 003,
             'requires' => "Subscribers",
             'icon' => 'users',
             'href' => "https://github.com/benbyford/subscribers",
@@ -30,40 +30,45 @@ class subscribersProcessList extends Process {
     }
 
     public function execute() {
-        // get users
-        $users = $this->users;
+        // get role from module of default to 'subscribers'
         $role = "subscriber";
-
         $subscribeModule = $this->modules->getModule('Subscribers');
-
         if($subscribeModule){
             $role = $subscribeModule->getRole();
         }
 
+        // limit per page
+        $limit = 25;
+
+        // get max number of users
+        $users = $this->pages->find("template=user,sort=-subscribe_date,roles=$role");
+        $count = count($users);
+
+        // get users with a limit
+        $users = $this->pages->find("template=user,sort=-subscribe_date,limit=$limit,roles=$role");
+
         $table = "<table><thead><tr><td>Username</td><td>Name</td><td>Company</td><td>User Role</td><td>Email</td><td>Date subscribed</td><td>Newsletter opt-in</td></tr></thead>";
-        $count = 0;
+
+        $pagination = $users->renderPager();
+        $table .= $pagination;
+
         $userRole = "";
         foreach ($users as $user) {
-            if($user->hasRole($role)){
-                $userRole = $role;
-            }
+            $userRole = $role;
             if($user->hasRole("exclusive")){
-                $userRole = "exclusive";
+                $userRole .= ", exclusive";
             }
-            if($userRole){
-                $table .= '<tr>';
-                $table .= '<td><a href="'. $this->config->urls->admin .'access/roles/edit/?id='. $user->id .'">'. $user->name . '</a></td>';
-                $table .= '<td>'. $user->fullname . '</td>';
-                $table .= '<td>'. $user->company . '</td>';
-                $table .= '<td>'. $userRole . '</td>';
-                $table .= '<td><a href="mailto:'.$user->email.'">'. $user->email . '</a></td>';
-                $table .= '<td>'. date("d.m.Y", (int)$user->subscribe_date) . '</td>';
-                $table .= '<td>'. $user->email_subscribe . '</td>';
-                $table .= '</tr>';
-                ++$count;
+            $table .= '<tr>';
+            $table .= '<td><a href="'. $this->config->urls->admin .'access/roles/edit/?id='. $user->id .'">'. $user->name . '</a></td>';
+            $table .= '<td>'. $user->fullname . '</td>';
+            $table .= '<td>'. $user->company . '</td>';
+            $table .= '<td>'. $userRole . '</td>';
+            $table .= '<td><a href="mailto:'.$user->email.'">'. $user->email . '</a></td>';
+            $table .= '<td>'. date("d.m.Y", (int)$user->subscribe_date) . '</td>';
+            $table .= '<td>'. $user->email_subscribe . '</td>';
+            $table .= '</tr>';
 
-                $userRole = "";
-            }
+            $userRole = "";
         }
         $table .= "</table>";
 
