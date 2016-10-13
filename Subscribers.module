@@ -30,12 +30,18 @@ class Subscribers extends WireData implements Module {
 		);
 	}
 
-	private $roleName = 'subscriber';
+	private $roleName 		= 'subscriber';
 	// permissions title
-	private $title = 'Allow subscribers to view restricted content';
-
+	private $title 			= 'Allow subscribers to view restricted content';
+	private $userSaved		= false;
+	private $userEmail 		= "";
+	private $userName		= "";
+	private $userCompany	= "";
+	private $pageURL 		= null;
 
 	public function init() {
+		// $pageURL = $this->page->url;
+
 		$this->addHookAfter('modules::saveModuleConfigData', $this, 'adminSaved');
 	}
 
@@ -236,7 +242,7 @@ class Subscribers extends WireData implements Module {
 		                <input required class='' type='password' name='pass' value='' />
 		            </div>
 		            <input type='submit' class='btn' name='submit' value='login' />
-		        </form><p><a href='". $this->page->url ."forgotten-password'>Forgotten password</a></p></div>";
+		        </form><p><a href='". $this->pageURL ."forgotten-password'>Forgotten password</a></p></div>";
 
 		return $f;
 	}
@@ -334,13 +340,12 @@ class Subscribers extends WireData implements Module {
 	}
 
 	// register
-	public function register($input){
+	public function ___register($input){
 		$out = '';
 
 		if($input->post->name && $input->post->password && $input->post->email){
 
 			// check to see is user exists
-			$userSaved = true;
 			try {
 				$u = new User();
 				$u->of(false);
@@ -356,13 +361,20 @@ class Subscribers extends WireData implements Module {
 				$u->addRole($this->roleName);
 				$u->save();
 
+				$this->userSaved = true;
+
 			} catch (Exception $e) {
 				// register error
 				$out = "User already exists or there was a problem, please use another email or login.";
-				$userSaved = false;
+				$this->userSaved = false;
 			}
 
-			if($userSaved){
+			$this->userEmail = $input->post->email;
+			$this->userName = $input->post->name;
+			$this->userCompany = $input->post->company;
+
+			if($this->userSaved){
+
 				// login in as new user
 				$this->session->login($u->name, $input->post->password);
 
@@ -439,4 +451,10 @@ class Subscribers extends WireData implements Module {
 	public function getRole(){
 		return $this->roleName;
 	}
+	// 
+	// public function __get($what) {
+    // 	if(isset($this->$what)) {
+    //     	return $this->$what;
+    // 	}
+	// }
 }
