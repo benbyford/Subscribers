@@ -19,7 +19,7 @@ class Subscribers extends WireData implements Module {
 	public static function getModuleInfo() {
 		return array(
 			'title' => "Subscribers",
-			'version' => "002",
+			'version' => "003",
 			'summary' => "Creates a form, admin list and login for subscribers",
 			'author' => "Ben Byford",
 			'href' => "https://github.com/benbyford/subscribers",
@@ -31,41 +31,43 @@ class Subscribers extends WireData implements Module {
 	}
 
 	private $roleName 		= 'subscriber';
-	// permissions title
-	private $title 			= 'Allow subscribers to view restricted content';
+	private $title 			= 'Allow subscribers to view restricted content'; // permissions title
 	private $userSaved		= false;
 	private $userEmail 		= "";
 	private $userName		= "";
 	private $userCompany	= "";
+	private $userSubscribed = false; // bool for opt-in to subscription
 	private $pageURL 		= null;
 
 	public function init() {
-		// $pageURL = $this->page->url;
-
 		$this->addHookAfter('modules::saveModuleConfigData', $this, 'adminSaved');
 	}
 
 	public function adminSaved(HookEvent $e){
 		// get saved page args
+
 		$args = $e->arguments[1];
 		$roleName = $args['user-role'];
 		$this->roleName = $roleName;
 
-		// if role found then dont do anything
-		if(count($this->pages->find("template=role, name=$roleName"))){
+		// check for role to save
+		if($roleName){
 
-			$this->message($roleName . " role already found");
+			// if role found then dont do anything
+			if(count($this->pages->find("template=role, name=$roleName"))){
 
-		// if role not found then add new role
-		}else{
+				$this->message($roleName . " role already found");
 
-			// add new role name
-			$role = new Role();
-			$role->name = $roleName;
+			// if role not found then add new role
+			}else{
 
-			$role->save();
+				// add new role name
+				$role = new Role();
+				$role->name = $roleName;
+				$role->save();
 
-			$this->message($roleName . " role created");
+				$this->message($roleName . " role created");
+			}
 		}
 	}
 
@@ -258,7 +260,7 @@ class Subscribers extends WireData implements Module {
 		if($input->get->password && $input->get->password_change && $input->get->old_pass){
 
 			if($this->session->authenticate($user, $input->get->old_pass)) {
-
+				$user->email_subscribe = $input->get->email_subscribe;
 				$user->pass = $input->get->password;
 				$user->save();
 
@@ -268,6 +270,12 @@ class Subscribers extends WireData implements Module {
 			}
 
 		}else{
+			// subscription checked?
+			$subscribed = "";
+			if($user->email_subscribe){
+				$subscribed = "checked";
+			}
+
 			$out .= "<form class='change_password' action='./' type='POST'>
 						<h4>Change password</h4>
 						<div>
@@ -276,8 +284,12 @@ class Subscribers extends WireData implements Module {
 						</div>
 						<div>
 							<label>New password:</label>
-							<input type='password' name='password'>
+							<input type='password' name='password' required>
 							<input type='text' name='password_change' value='1' required class='hidden'>
+						</div>
+						<div>
+							<label>Change email subscribe settings:</label>
+							<input type='checkbox' name='email_subscribe' $subscribed>
 						</div>
 						<div>
 							<input type='submit' value='submit'>
@@ -371,7 +383,7 @@ class Subscribers extends WireData implements Module {
 
 			$this->userEmail = $input->post->email;
 			$this->userName = $input->post->name;
-			$this->userCompany = $input->post->company;
+			$this->userSubscribed = $input->post->email_subscribe;
 
 			if($this->userSaved){
 
@@ -396,6 +408,21 @@ class Subscribers extends WireData implements Module {
 		}
 		return $out;
 	}
+
+	// public functions for other modules to access variables
+	// public function getUserName(){
+	// 	return $this->userName;
+	// }
+	// public function getUserEmail(){
+	// 	return $this->userEmail;
+	// }
+	// public function getUserCreated(){
+	// 	return $this->userSaved;
+	// }
+	// public function getUserSubscribed(){
+	// 	return $this->userSubscribed;
+	// }
+
 
 	// forgotten password
 	public function lostPassword($input){
@@ -448,13 +475,8 @@ class Subscribers extends WireData implements Module {
 	    return $out;
 	}
 
+	// public function to get role name
 	public function getRole(){
 		return $this->roleName;
 	}
-	// 
-	// public function __get($what) {
-    // 	if(isset($this->$what)) {
-    //     	return $this->$what;
-    // 	}
-	// }
 }
