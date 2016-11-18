@@ -38,7 +38,7 @@ class subscribersProcessList extends Process {
         }
 
         // limit per page
-        $limit = 25;
+        $limit = 40;
 
         // get max number of users
         $users = $this->pages->find("template=user,sort=-subscribe_date,roles=$role");
@@ -73,21 +73,22 @@ class subscribersProcessList extends Process {
         $table .= "</table>";
 
         $list = "<h2>Users with Role: <b>". $role ."</b> or <b>exclusive</b></h2>";
-        $list .= "<h4>Total of <b>". $count ."</b> users</h4>";
 
         // if bulk clicked then provide commor list of users
         if($this->input->get("bulk")==1){
 
-            $users = $this->pages->find("template=user,sort=-subscribe_date,roles=$role");
+            $users = $this->pages->find("template=user,sort=-subscribe_date,roles=$role, email_subscribe=1");
             $user_bulk = "<div class='bulk'>";
             foreach ($users as $user) {
                 $user_bulk .= $user->email . ", ";
             }
             $user_bulk .= "</div>";
+            $list .= "<h4>Total of <b>". count($users) ."</b> users</h4>";
             $list .= $user_bulk;
 
         }else{
-            $list .= "<a class='align_right' href='?bulk=1'>Export list comma delineated</a>";
+            $list .= "<a class='align_right' href='?bulk=1'>Export opt-in list (comma delineated)</a>";
+            $list .= "<h4>Total of <b>". $count ."</b> users</h4>";
             $list .= $table;
         }
 

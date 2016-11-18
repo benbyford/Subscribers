@@ -257,11 +257,11 @@ class Subscribers extends WireData implements Module {
 
 		$out .= "<p>Username: " . $user->name . "</p>";
 
-		if($input->get->password && $input->get->password_change && $input->get->old_pass){
+		if($input->post->password && $input->post->password_change && $input->post->old_pass){
 
-			if($this->session->authenticate($user, $input->get->old_pass)) {
-				$user->email_subscribe = $input->get->email_subscribe;
-				$user->pass = $input->get->password;
+			if($this->session->authenticate($user, $input->post->old_pass)) {
+				$user->email_subscribe = $input->post->email_subscribe;
+				$user->pass = $input->post->password;
 				$user->save();
 
 				$out .= "<p><span class='message'>Your password was changed.</span></p>";
@@ -276,7 +276,7 @@ class Subscribers extends WireData implements Module {
 				$subscribed = "checked";
 			}
 
-			$out .= "<form class='change_password' action='./' type='POST'>
+			$out .= "<form class='change_password' action='./' method='post'>
 						<h4>Change password</h4>
 						<div>
 							<label>Current password:</label>
